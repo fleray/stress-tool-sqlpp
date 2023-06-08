@@ -36,7 +36,7 @@ public class SqlPPStressTool {
 		boolean precheckQueries = false;
 		String username = "Administrator";
 		String password = "password";
-		String host = "ec2-34-247-48-133.eu-west-1.compute.amazonaws.com";
+		String host = "XXX.amazonaws.com";
 //		String host = "localhost";
 		String fileURL = "";
 		long queriesLimit = -1L;
