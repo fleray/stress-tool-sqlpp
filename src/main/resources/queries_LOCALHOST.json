@@ -1,0 +1,5 @@
+[
+ {"statement":"SELECT COUNT(*) AS count FROM `test_docto`.`_default`.`_default` WHERE event IS NOT MISSING AND created_at = ?", "parameters":[{"values":["'2021-06-25'","'2022-11-18'"], "type":"randomInArray"}]},
+ {"statement":"SELECT COUNT(*) AS count FROM `test_docto`.`_default`.`_default` WHERE created_at = ?", "parameters":[{"values":["2014-04-10","2014-04-11"], "type":"randomInRange"}]},
+ {"statement":"SELECT COUNT(*) AS count FROM `test_docto`.`_default`.`_default` WHERE item_id = ?", "parameters":[{"values":[7558585277,1995851081], "type":"randomInArray"}]}
+]

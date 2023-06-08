@@ -1,0 +1,5 @@
+[
+ {"statement":"SELECT * FROM `doctolib_bucket`.`doctolib_scope`.`collection6` WHERE created_at = ? LIMIT 20", "parameters":[{"values":["'2021-06-25'","'2022-11-18'"], "type":"randomInArray"}]},
+ {"statement":"SELECT * FROM `doctolib_bucket`.`doctolib_scope`.`collection6` WHERE created_at = ? LIMIT 5", "parameters":[{"values":["2014-04-10","2014-04-11"], "type":"randomInRange"}]},
+ {"statement":"SELECT * FROM `doctolib_bucket`.`doctolib_scope`.`collection8` WHERE event = ? LIMIT 10", "parameters":[{"values":["'update'","'create'"], "type":"randomInArray"}]}
+]

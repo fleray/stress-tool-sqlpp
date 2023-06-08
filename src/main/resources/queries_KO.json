@@ -1,0 +1,2 @@
+[{"statement":"SELECT COUNT(*) FROM `travel-sample`.`_default`.`_default` WHERE AAAA = \"rr\""},
+{"statement":"SELECT COUNT(*) FROM `doctolib_bucket`.`doctolib_scope`.`collection5` WHERE event IS NOT MISSING"}]
