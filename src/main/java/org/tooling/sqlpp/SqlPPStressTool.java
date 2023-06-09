@@ -36,16 +36,15 @@ public class SqlPPStressTool {
 		boolean precheckQueries = false;
 		String username = "Administrator";
 		String password = "password";
-		String host = "XXX.amazonaws.com";
+		String host = "XXXXXXX.amazonaws.com";
 //		String host = "localhost";
 		String fileURL = "";
-		long queriesLimit = -1L;
 		long nbQPSWanted = -1L;
 
 		/* Read request */
 		long numQueries = 999999999L;
 		int numTasks = 5;
-		int numThreads = 10;
+		int numThreads = Runtime.getRuntime().availableProcessors();
 		Long logAfter = 1000L;
 
 		CommandLine commandLine;
@@ -60,6 +59,8 @@ public class SqlPPStressTool {
 				.desc("Approx. QPS (queries per second) desired").build();
 		Option option_number_queries = Option.builder("n").argName("queries-number").hasArg()
 				.desc("Total number of queries to run (-1: no limit)").build();
+		Option option_number_threads = Option.builder("t").argName("threads").hasArg()
+				.desc("Total number of threads to use: default (and max) value is max # cores available on the machine").build();
 
 		Options options = new Options();
 		CommandLineParser parser = new DefaultParser();
@@ -71,6 +72,7 @@ public class SqlPPStressTool {
 		options.addOption(option_pc);
 		options.addOption(option_queries_limit);
 		options.addOption(option_number_queries);
+		options.addOption(option_number_threads);
 
 		String header = "               [<arg1> [<arg2> [<arg3> ...\n       Options, flags and arguments may be in any order";
 		HelpFormatter formatter = new HelpFormatter();
@@ -119,6 +121,12 @@ public class SqlPPStressTool {
 				}
 			}
 
+			if (commandLine.hasOption("t")) {
+				LOGGER.debug(String.format("Total number of threads to use: %s%n", commandLine.getOptionValue("t")));
+				numThreads = Math.min(Runtime.getRuntime().availableProcessors(),
+						Integer.parseInt(commandLine.getOptionValue("t")));
+			}
+
 		} catch (ParseException exception) {
 			LOGGER.error("Parse error: " + exception);
 		}
@@ -152,8 +160,7 @@ public class SqlPPStressTool {
 					// Customize client settings by calling methods on the "env" variable.
 				}))) {
 
-			CouchbaseSQLPP sqlPlusPlus = new CouchbaseSQLPP(cluster.reactive(), statementWithParameters, queriesLimit,
-					nbQPSWanted);
+			CouchbaseSQLPP sqlPlusPlus = new CouchbaseSQLPP(cluster.reactive(), statementWithParameters, nbQPSWanted);
 
 			/* Queries */
 			if (numQueries > 0) {

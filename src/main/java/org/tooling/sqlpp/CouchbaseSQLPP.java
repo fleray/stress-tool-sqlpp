@@ -34,15 +34,12 @@ public class CouchbaseSQLPP {
 
 	private StatementWithParameters[] statementWithParameters;
 
-	private long queriesLimit;
-
 	private long nbQPSWanted;
 
 	public CouchbaseSQLPP(ReactiveCluster reactiveCluster, 
-			StatementWithParameters[] statementWithParameters, long queriesLimit, long nbQPSWanted) {
+			StatementWithParameters[] statementWithParameters, long nbQPSWanted) {
 		this.reactiveCluster = reactiveCluster;
 		this.statementWithParameters = statementWithParameters;
-		this.queriesLimit = queriesLimit;
 		this.nbQPSWanted = nbQPSWanted;
 	}
 	
