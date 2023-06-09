@@ -124,7 +124,7 @@ public class SqlPPStressTool {
 			if (commandLine.hasOption("t")) {
 				numThreads = Math.min(Runtime.getRuntime().availableProcessors(),
 						Integer.parseInt(commandLine.getOptionValue("t")));
-				LOGGER.debug(String.format("Total number of threads to use: %s%n", commandLine.getOptionValue("t")));
+				LOGGER.debug(String.format("Total number of threads to use: %s%n", numThreads));
 			}
 
 		} catch (ParseException exception) {
