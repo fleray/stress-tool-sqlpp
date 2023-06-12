@@ -13,6 +13,7 @@ import com.couchbase.client.core.retry.BestEffortRetryStrategy;
 import com.couchbase.client.java.ReactiveCluster;
 import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.ReactiveQueryResult;
+import com.google.common.util.concurrent.RateLimiter;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -22,13 +23,9 @@ public class CouchbaseSQLPP {
 
 	private static final Logger LOGGER = Logger.getLogger(CouchbaseSQLPP.class);
 
-	private static final long EPSILON = 5;
 	private ReactiveCluster reactiveCluster;
 	private AtomicReference<Long> counter = new AtomicReference<Long>();
 	private static StateCounters COUNTERS = new StateCounters();
-
-	private boolean continueSearchOptimalSleepDuration = true;
-	private double sleepMillis = 1L;
 
 	private Instant startTime;
 
@@ -36,16 +33,16 @@ public class CouchbaseSQLPP {
 
 	private long nbQPSWanted;
 
-	public CouchbaseSQLPP(ReactiveCluster reactiveCluster, 
-			StatementWithParameters[] statementWithParameters, long nbQPSWanted) {
+	public CouchbaseSQLPP(ReactiveCluster reactiveCluster, StatementWithParameters[] statementWithParameters,
+			long nbQPSWanted) {
 		this.reactiveCluster = reactiveCluster;
 		this.statementWithParameters = statementWithParameters;
 		this.nbQPSWanted = nbQPSWanted;
 	}
-	
+
 	private StatementWithParameters getRandomStatementWithParameters() {
-	    int rnd = new Random().nextInt(this.statementWithParameters.length);
-	    return this.statementWithParameters[rnd];
+		int rnd = new Random().nextInt(this.statementWithParameters.length);
+		return this.statementWithParameters[rnd];
 	}
 
 	/**
@@ -70,37 +67,41 @@ public class CouchbaseSQLPP {
 		QueryOptions qo = QueryOptions.queryOptions().adhoc(false);
 		qo.retryStrategy(BestEffortRetryStrategy.INSTANCE);
 
-		Flux.range(0, numTasks)
-		.parallel()
-		.runOn(Schedulers.newParallel("se-sql-stresstool", numThreads))
-		.flatMap(i -> Flux.range(0, (int) numOperations).flatMap(j -> runQuery(qo))
-					.onErrorContinue((throwable, obj) -> {
-						// Depends what we want to happen - here silently swallowing any errors
-						errorCounter.accumulateAndGet(1L, Long::sum);
-//					LOGGER.debug("==> errorCounter = " + errorCounter.get() + "Error is: " + throwable +  " \t thread"
-//							+ Thread.currentThread().getName());
-					}))
-		.runOn(Schedulers.newParallel("se-sql-result", numThreads))
-		.doOnNext(result -> handleResult(logAfter, result)).sequential().blockLast();
-
+		if (nbQPSWanted > 0) {
+			RateLimiter limiter = RateLimiter.create(nbQPSWanted);
+			stressCluster(numOperations, numTasks, numThreads, logAfter, errorCounter, qo, limiter);
+		} else {
+			stressCluster(numOperations, numTasks, numThreads, logAfter, errorCounter, qo, null);
+		}
 
 		return COUNTERS;
 
 	}
 
-	private Mono<ReactiveQueryResult> runQuery(QueryOptions qo) {
+	private void stressCluster(long numOperations, int numTasks, int numThreads, Long logAfter,
+			AtomicReference<Long> errorCounter, QueryOptions qo, RateLimiter limiter) {
+		Flux.range(0, numTasks)
+			.parallel()
+			.runOn(Schedulers.newParallel("se-sql-stresstool", numThreads))
+				.flatMap(i -> Flux.range(0, (int) numOperations).flatMap(j -> runQuery(qo, limiter))
+						.onErrorContinue((throwable, obj) -> {
+							// Depends what we want to happen - here silently swallowing any errors
+							errorCounter.accumulateAndGet(1L, Long::sum);
+					LOGGER.debug("==> errorCounter = " + errorCounter.get() + "Error is: " + throwable +  " \t thread"
+							+ Thread.currentThread().getName());
+						}))
+//			.runOn(Schedulers.newParallel("se-sql-result", numThreads))
+			.doOnNext(result -> handleResult(logAfter, result)).sequential().blockLast();
+	}
 
+	private Mono<ReactiveQueryResult> runQuery(QueryOptions qo, RateLimiter limiter) {
+
+		if (limiter != null) {
+			limiter.acquire();
+		}
 		String query = getRandomStatementWithParameters().buildQuery();
 		
-		try {
-			double nanos = sleepMillis - (int) (sleepMillis);
-			nanos = nanos * 1000000;
-			Thread.sleep((long) (sleepMillis), (int) nanos);
-//			Thread.sleep(0L, (int) 1);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		LOGGER.debug("query= " + query);
 
 		return reactiveCluster.query(query, qo);
 	}
@@ -119,24 +120,7 @@ public class CouchbaseSQLPP {
 			LOGGER.info(" ERRORS: " + COUNTERS.getErrorCounter());
 			startTime = Instant.now(); // Reset start time for the next batch
 			counter.set(0L);
-			
-			if(nbQPSWanted != -1L) {
-				if (Math.abs(roundQps - nbQPSWanted) <= EPSILON) {
-					if(continueSearchOptimalSleepDuration) {
-						LOGGER.info("Final sleepMillis found: " + sleepMillis + " (STOP searching sleep duration parameter.");
-					}
-					continueSearchOptimalSleepDuration = false;
-					return;
-				} else if (continueSearchOptimalSleepDuration) {
-					if (roundQps > nbQPSWanted) {
-						sleepMillis = sleepMillis * 2.0;
-						LOGGER.debug("+ -> sleepMillis = " + sleepMillis);
-					} else {
-						sleepMillis = (sleepMillis / 2. + sleepMillis) / 2.;
-						LOGGER.debug("- -> sleepMillis = " + sleepMillis);
-					}
-				}
-			}
+
 		}
 //		LOGGER.debug("accumuCounter = " + accumuCounter.get() + " \t thread" + Thread.currentThread().getName());
 	}

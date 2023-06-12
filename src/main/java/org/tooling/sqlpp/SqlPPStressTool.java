@@ -18,6 +18,7 @@ import org.tooling.sqlpp.utils.pojo.StatementWithParameters;
 
 import com.couchbase.client.core.deps.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import com.couchbase.client.core.env.SecurityConfig;
+import com.couchbase.client.core.env.SecurityConfig.Builder;
 import com.couchbase.client.core.error.IndexFailureException;
 import com.couchbase.client.core.error.PlanningFailureException;
 import com.couchbase.client.core.retry.BestEffortRetryStrategy;
@@ -36,15 +37,15 @@ public class SqlPPStressTool {
 		boolean precheckQueries = false;
 		String username = "Administrator";
 		String password = "password";
-		String host = "XXXXXXX.amazonaws.com";
-//		String host = "localhost";
+		String host = "localhost";
 		String fileURL = "";
 		long nbQPSWanted = -1L;
+		boolean withSSL = false;
 
 		/* Read request */
 		long numQueries = 999999999L;
-		int numTasks = 5;
-		int numThreads = Runtime.getRuntime().availableProcessors();
+		int numTasks = 2;
+		int numThreads = 2 * Runtime.getRuntime().availableProcessors();
 		Long logAfter = 1000L;
 
 		CommandLine commandLine;
@@ -60,7 +61,9 @@ public class SqlPPStressTool {
 		Option option_number_queries = Option.builder("n").argName("queries-number").hasArg()
 				.desc("Total number of queries to run (-1: no limit)").build();
 		Option option_number_threads = Option.builder("t").argName("threads").hasArg()
-				.desc("Total number of threads to use: default (and max) value is max # cores available on the machine").build();
+				.desc("Total number of threads to use: default (and max) value is max # cores available on the machine")
+				.build();
+		Option option_s = Option.builder("s").argName("ssl").hasArg(false).desc("Enable SSL protocol").build();
 
 		Options options = new Options();
 		CommandLineParser parser = new DefaultParser();
@@ -73,6 +76,7 @@ public class SqlPPStressTool {
 		options.addOption(option_queries_limit);
 		options.addOption(option_number_queries);
 		options.addOption(option_number_threads);
+		options.addOption(option_s);
 
 		String header = "               [<arg1> [<arg2> [<arg3> ...\n       Options, flags and arguments may be in any order";
 		HelpFormatter formatter = new HelpFormatter();
@@ -122,9 +126,14 @@ public class SqlPPStressTool {
 			}
 
 			if (commandLine.hasOption("t")) {
-				numThreads = Math.min(Runtime.getRuntime().availableProcessors(),
+				numThreads = Math.min(2 * Runtime.getRuntime().availableProcessors(),
 						Integer.parseInt(commandLine.getOptionValue("t")));
 				LOGGER.debug(String.format("Total number of threads to use: %s%n", numThreads));
+			}
+
+			if (commandLine.hasOption("s")) {
+				LOGGER.debug(String.format("SSL protocol ENABLED%n"));
+				withSSL = true;
 			}
 
 		} catch (ParseException exception) {
@@ -142,8 +151,11 @@ public class SqlPPStressTool {
 
 		LOGGER.info(String.format("---- Script STARTED at %s ----", new Date().toString()));
 
+		Builder trustManagerFactory = SecurityConfig.enableTls(withSSL)
+				.trustManagerFactory(InsecureTrustManagerFactory.INSTANCE);
+
 		if (precheckQueries) {
-			if (!validateAllQueries(host, username, password, statementWithParameters)) {
+			if (!validateAllQueries(host, username, password, statementWithParameters, trustManagerFactory)) {
 				LOGGER.error("At least 1 query has not been validated! Script STOPS now.");
 				return;
 			}
@@ -153,10 +165,8 @@ public class SqlPPStressTool {
 
 		try (Cluster cluster = Cluster.connect(host,
 				ClusterOptions.clusterOptions(username, password).environment(env -> {
-					env.securityConfig(
-							SecurityConfig.enableTls(false).trustManagerFactory(InsecureTrustManagerFactory.INSTANCE))
-							.retryStrategy(BestEffortRetryStrategy.withExponentialBackoff(Duration.ofNanos(1000),
-									Duration.ofMillis(1), 2));
+					env.securityConfig(trustManagerFactory).retryStrategy(BestEffortRetryStrategy
+							.withExponentialBackoff(Duration.ofNanos(1000), Duration.ofMillis(1), 2));
 					// Customize client settings by calling methods on the "env" variable.
 				}))) {
 
@@ -184,15 +194,13 @@ public class SqlPPStressTool {
 	}
 
 	private static boolean validateAllQueries(String host, String username, String password,
-			StatementWithParameters[] statementWithParameters) {
+			StatementWithParameters[] statementWithParameters, Builder trustManagerFactory) {
 		boolean result = true;
 
 		try (Cluster cluster = Cluster.connect(host,
 				ClusterOptions.clusterOptions(username, password).environment(env -> {
-					env.securityConfig(
-							SecurityConfig.enableTls(false).trustManagerFactory(InsecureTrustManagerFactory.INSTANCE))
-							.retryStrategy(BestEffortRetryStrategy.withExponentialBackoff(Duration.ofNanos(1000),
-									Duration.ofMillis(1), 2));
+					env.securityConfig(trustManagerFactory).retryStrategy(BestEffortRetryStrategy
+							.withExponentialBackoff(Duration.ofNanos(1000), Duration.ofMillis(1), 2));
 					// Customize client settings by calling methods on the "env" variable.
 				}))) {
 
@@ -214,5 +222,4 @@ public class SqlPPStressTool {
 		return result;
 
 	}
-
 }

@@ -15,6 +15,10 @@ public class Params {
 	@JsonProperty("type")
 	private String type;
 	
+	// used only with randomMultiInArray to specify how many elements to select randomly in given 'values' array
+	@JsonProperty("quantity")
+	private int quantity = 0;
+	
 	public Params() {
 		
 	}
@@ -26,6 +30,15 @@ public class Params {
 	public String getType() {
 		return type;
 	}
+	
+	public int getQuantity() {
+		return quantity;
+	}
+	
+	public void setQuantity(int quantity) {
+		this.quantity = quantity;
+	}
+
 	
 	@Override
 	public String toString() {

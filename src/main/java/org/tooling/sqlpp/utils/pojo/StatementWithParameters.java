@@ -1,12 +1,10 @@
 package org.tooling.sqlpp.utils.pojo;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Date;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -18,7 +16,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties
 public class StatementWithParameters {
 
-	private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyy-MM-dd");
+	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 	private static final Logger LOGGER = Logger.getLogger(StatementWithParameters.class);
 
 	@JsonProperty("statement")
@@ -36,7 +34,7 @@ public class StatementWithParameters {
 	}
 
 	public String buildQuery() throws IllegalArgumentException {
-		String query = "";
+		String query = statement;
 		if (null != parameters) {
 			// check number of "?" is the same as parameters size:
 			int count = (int) statement.chars().filter(ch -> ch == '?').count();
@@ -52,27 +50,60 @@ public class StatementWithParameters {
 				query = String.format(statement.replace("?", "%s"), buildParam(parameters.get(i)));
 			}
 		}
+//		LOGGER.debug("query: "+ query);
 		return query;
 	}
 
 	private String buildParam(Params params) {
 		String res = "";
-		
+
 		if (null == params.getType()) {
 			String errMess = String.format("Params \"%s\" NEEDS to have both 'type' and 'values'", params.toString());
 			LOGGER.error(errMess);
 			throw new IllegalArgumentException(errMess);
 		}
 
+		Object[] values = params.getValues();
+		
+
+		if (null == values) {
+			throw new NullPointerException("'values' field IS MISSING");	
+		}
+		else if (0 == values.length) {
+			throw new IllegalArgumentException("'values' array MUST NOT be empty");	
+		}
+		
 		switch (params.getType()) {
 		case "randomInArray":
-			Object[] values = params.getValues();
 			Object randomObj = getRandomObj(values);
 			res = randomObj.toString();
 			break;
 
 		case "randomMultiInArray":
-			// TODO !!
+
+
+			if (params.getQuantity() <= 0) {
+				LOGGER.warn("Quantity MUST NOT be null: quantity defaults back to 'values.length'");
+				params.setQuantity(values.length);
+			}
+
+			if (values.length == 1) {
+				res = (String) values[0];
+			} else if (values.length == params.getQuantity()) {
+				res = "";
+				for (int i = 0; i < params.getQuantity(); i++) {
+					res += "," + (String) values[i];
+				}
+				res = res.substring(1);
+			} else {
+				res = "";
+				for (int i = 0; i < params.getQuantity(); i++) {
+					String randomElement = getRandomElement(Arrays.asList(values));
+					res += "," + randomElement;
+				}
+				res = res.substring(1);
+			}
+
 			break;
 
 		case "randomInRange":
@@ -86,42 +117,58 @@ public class StatementWithParameters {
 		default:
 			break;
 		}
-		
-		return res;
+
+	return res;
+
 	}
-	
-	private static Object getRandomObj(Object[] array) {
-	    int rnd = new Random().nextInt(array.length);
-	    return array[rnd];
+
+	private Object getRandomObj(Object[] array) {
+		int rnd = new Random().nextInt(array.length);
+		return array[rnd];
 	}
-	
-	private static String getRandomInRange(Object[] array) throws ParseException {
+
+	private String getRandomInRange(Object[] array) throws ParseException {
 		String res = "";
-		if(array.length != 2) {
+		if (array.length != 2) {
 			String errMess = String.format("A range MUST contain only 2 values");
 			LOGGER.error(errMess);
 			throw new IllegalArgumentException(errMess);
 		}
-	    if(array[0] instanceof String) {
-	    	// range string => date MANDATORY
-	    	Date startDate = DATE_FORMATTER.parse((String) array[0]);
-	    	Date endDate = DATE_FORMATTER.parse((String) array[1]);
-	    	res = between(startDate, endDate).toString();
-	    } else if(array[0] instanceof Integer) {
-	    	int low = (int) array[0];
-	    	int high = (int) array[1];
-	    	res = Integer.toString((new Random().nextInt(high-low) + low));
-	    }
-	    return res;
+		if (array[0] instanceof String) {
+			// range string => date MANDATORY
+			LocalDate startDate = LocalDate.parse((String) array[0], DATE_FORMAT);
+			LocalDate endDate = LocalDate.parse((String) array[1], DATE_FORMAT);
+			res = between(startDate, endDate).toString();
+		} else if (array[0] instanceof Integer) {
+			int low = (int) array[0];
+			int high = (int) array[1];
+			res = Integer.toString((new Random().nextInt(high - low) + low));
+		} else if (array[0] instanceof Double) {
+			double low = (double) array[0];
+			double high = (double) array[1];
+			res = Double.toString((new Random().nextDouble(high - low) + low));
+		}
+		return res;
 	}
-	
-	public static String between(Date startInclusive, Date endExclusive) {
-	    long startMillis = startInclusive.getTime();
-	    long endMillis = endExclusive.getTime();
-	    long randomMillisSinceEpoch = ThreadLocalRandom
-	      .current()
-	      .nextLong(startMillis, endMillis);
 
-	    return "'" + DATE_FORMATTER.format(new Date(randomMillisSinceEpoch)) + "'";
+	public String between(LocalDate startInclusive, LocalDate endExclusive) {
+		long startMillis = startInclusive.toEpochDay();
+		long endMillis = endExclusive.toEpochDay();
+		long randomMillisSinceEpoch = 0L;
+
+		try {
+			randomMillisSinceEpoch = ThreadLocalRandom.current().nextLong(startMillis, endMillis);
+		} catch (IllegalArgumentException iae) {
+			LOGGER.error(iae);
+		}
+
+		return "'" + LocalDate.ofEpochDay(randomMillisSinceEpoch) + "'";
+	}
+
+	// Function select an element base on index
+	// and return an element
+	public String getRandomElement(List<Object> list) {
+		Random rand = new Random();
+		return (String) list.get(rand.nextInt(list.size()));
 	}
 }
