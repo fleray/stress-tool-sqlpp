@@ -46,36 +46,39 @@
 		    <artifactId>jackson-databind</artifactId>
 		    <version>2.15.2</version>
 		</dependency>
+		<dependency>
+		    <groupId>com.google.guava</groupId>
+		    <artifactId>guava</artifactId>
+		    <version>32.0.0-jre</version>
+		</dependency>
     </dependencies>
     
     <build>
-        <sourceDirectory>${src.dir}</sourceDirectory>
         <plugins>
-	      <plugin>
-	        <groupId>org.apache.maven.plugins</groupId>
-	        <artifactId>maven-shade-plugin</artifactId>
-	        <version>3.2.2</version>
-	        <executions>
-	          <execution>
-  	            <id>SqlPPStressTool</id>
-	            <phase>package</phase>
-	            <goals>
-	              <goal>shade</goal>
-	            </goals>
-	            <configuration>
-	              <transformers>
-	                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-	                  <mainClass>org.tooling.sqlpp.SqlPPStressTool</mainClass>
-	                   <manifestEntries>
-	                  	<Class-Path>.</Class-Path>
-	                  </manifestEntries>
-	                </transformer>
-	              </transformers>
-	            </configuration>
-	          </execution>
-	        </executions>
-	      </plugin>
-	    </plugins>
+		    <plugin>
+		        <groupId>org.springframework.boot</groupId>
+		        <artifactId>spring-boot-maven-plugin</artifactId>
+		        <configuration>
+		            <mainClass>org.tooling.sqlpp.SqlPPStressTool</mainClass>
+		            <layout>JAR</layout>
+		        </configuration>
+		        <executions>
+				    <execution>
+				        <goals>
+				            <goal>repackage</goal>
+				        </goals>
+				    </execution>
+				</executions>
+		    </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
 </project>
