@@ -1,0 +1,5 @@
+[
+ {"statement":"SELECT * FROM `travel-sample`.`inventory`.`airline` LIMIT ?", "parameters":[{"values":["10","20"], "type":"randomInArray"}]},
+ {"statement":"SELECT name, iata, icao, callsign from  `travel-sample`.`inventory`.`airline` WHERE country = ?", "parameters":[{"values":["'United States'","'France'","'United Kingdom'"], "type":"randomInArray"}]},
+ {"statement":"SELECT * from  `travel-sample`.`inventory`.`hotel` WHERE country = ? LIMIT 20", "parameters":[{"values":["'United States'","'France'","'United Kingdom'"], "type":"randomInArray"}]}
+]
