@@ -64,15 +64,13 @@ public class StatementWithParameters {
 		}
 
 		Object[] values = params.getValues();
-		
 
 		if (null == values) {
-			throw new NullPointerException("'values' field IS MISSING");	
+			throw new NullPointerException("'values' field IS MISSING");
+		} else if (0 == values.length) {
+			throw new IllegalArgumentException("'values' array MUST NOT be empty");
 		}
-		else if (0 == values.length) {
-			throw new IllegalArgumentException("'values' array MUST NOT be empty");	
-		}
-		
+
 		switch (params.getType()) {
 		case "randomInArray":
 			Object randomObj = getRandomObj(values);
@@ -80,7 +78,6 @@ public class StatementWithParameters {
 			break;
 
 		case "randomMultiInArray":
-
 
 			if (params.getQuantity() <= 0) {
 				LOGGER.warn("Quantity MUST NOT be null: quantity defaults back to 'values.length'");
@@ -118,7 +115,7 @@ public class StatementWithParameters {
 			break;
 		}
 
-	return res;
+		return res;
 
 	}
 
